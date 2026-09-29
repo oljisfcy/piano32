@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="application-name" content="piano32-player-v1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>音乐卡片 · Piano32</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100svh; background: #0b0f19; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: grid; place-items: center; padding: 28px; }
+    main { width: 100%; max-width: 460px; min-width: 0; }
+    .label { color: #4ade80; font-size: 12px; letter-spacing: .22em; margin: 0 0 28px; }
+    h1 { font-size: clamp(26px, 7vw, 38px); font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; margin: 0 0 32px; }
+    audio { display: block; width: 100%; max-width: 100%; }
+    p { color: #94a3b8; font-size: 14px; line-height: 1.7; }
+    #status { margin-top: 22px; }
+    button { border: 1px solid #334155; border-radius: 9px; color: #dbeafe; background: #162031; padding: 10px 20px; cursor: pointer; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="label">PIANO32 / MUSIC CARD</p>
+    <h1 id="title">音乐卡片</h1>
+    <audio id="audio" controls preload="none" playsinline controlslist="nodownload" hidden></audio>
+    <p id="status" role="status" aria-live="polite">请通过音乐卡片打开歌曲。</p>
+    <button id="retry" type="button" hidden>重新加载</button>
+  </main>
+  <script>
+    'use strict';
+    const title = document.getElementById('title');
+    const audio = document.getElementById('audio');
+    const status = document.getElementById('status');
+    const retry = document.getElementById('retry');
+    function loadSong() {
+      audio.pause(); audio.removeAttribute('src'); audio.load(); audio.hidden = true; retry.hidden = true;
+      try {
+        const path = decodeURIComponent(location.hash.slice(1));
+        if (!path || path.split('/').some(part => !part || part === '.' || part === '..') || /[\\\x00-\x1f\x7f]/.test(path) || !/\.(mp3|m4a|aac|wav|ogg|flac)$/i.test(path)) throw new Error('invalid path');
+        const name = path.split('/').pop();
+        title.textContent = name.replace(/\.[^.]+$/, '');
+        document.title = title.textContent + ' · Piano32';
+        audio.src = 'https://cdn.jsdelivr.net/gh/oljisfcy/piano32@main/' + path.split('/').map(encodeURIComponent).join('/');
+        audio.hidden = false;
+        status.textContent = '轻点播放，在线收听。';
+      } catch (_) { title.textContent = '音乐卡片'; status.textContent = '链接不完整，请在小程序中重新写卡。'; }
+    }
+    audio.addEventListener('playing', () => { status.textContent = '正在播放'; retry.hidden = true; });
+    audio.addEventListener('pause', () => { if (!audio.hidden && !audio.ended) status.textContent = '已暂停'; });
+    audio.addEventListener('ended', () => { status.textContent = '播放完毕'; });
+    audio.addEventListener('waiting', () => { status.textContent = '正在缓冲…'; });
+    audio.addEventListener('error', () => { if (!audio.getAttribute('src')) return; status.textContent = '暂时无法播放，请检查网络后重试。新上传的音乐可能仍在等待更新，或当前浏览器不支持此格式。'; retry.hidden = false; });
+    retry.addEventListener('click', () => { audio.load(); audio.play().catch(() => { status.textContent = '无法开始播放，请检查网络或更换浏览器重试。'; }); });
+    window.addEventListener('hashchange', loadSong);
+    loadSong();
+  </script>
+</body>
+</html>
