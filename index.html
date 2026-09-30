@@ -31,7 +31,12 @@ dialog{color:#f5f6f2;background:#222a29;border:1px solid #ffffff1c;border-radius
 <audio id="audio" preload="metadata" playsinline style="display:none"></audio>
 <div class="timeline"><label for="progress" class="sr-only">播放进度</label><input id="progress" class="range" type="range" min="0" max="1000" step="1" value="0" disabled><div class="times"><span id="elapsed">00:00</span><span id="total">00:00</span></div></div>
 <div class="controls">
-<span class="control-spacer" aria-hidden="true"></span>
+<button id="playbackMode" class="icon-button" aria-label="播放模式：播放完暂停，点击切换" title="播放完暂停">
+<svg id="modeOnceIcon" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 4v16l11-8zM20 5h2v14h-2z"/></svg>
+<svg id="modeSingleIcon" aria-hidden="true" viewBox="0 0 24 24" hidden><path d="M12 5a7 7 0 1 0 6.7 9h-2.1a5 5 0 1 1-1.2-5.2L13 11h7V4l-2.2 2.2A6.96 6.96 0 0 0 12 5z"/><text x="9" y="15" font-size="8" fill="#232727">1</text></svg>
+<svg id="modeSequenceIcon" aria-hidden="true" viewBox="0 0 24 24" hidden><path d="M4 5h3v3H4zm5 0h11v2H9zM4 11h3v3H4zm5 .5h11v2H9zM4 18h3v3H4zm5 .5h11v2H9z"/></svg>
+<svg id="modeRandomIcon" aria-hidden="true" viewBox="0 0 24 24" hidden><path d="M17 3h5v5h-2V6.4l-4 4-1.4-1.4 4-4H17zM3 6h4.2c2.3 0 3.5 1.5 4.7 3l5.2 6.1c.9 1 1.4 1.4 2.4 1.4h.5v-2l3 3-3 3v-2h-.5c-1.9 0-2.9-1-4-2.3l-5.2-6.1C9.2 9.8 8.6 9 7.2 9H3zm0 12h4.2c1.4 0 2-.8 3.1-2l1.3-1.5 1.4 1.5-1.2 1.4C10.5 19 9.4 20 7.2 20H3z"/></svg>
+</button>
 <button id="previous" class="icon-button" aria-label="上一首" disabled><svg viewBox="0 0 24 24"><path d="M5 4h3v16H5zm15 0v16L9 12z"/></svg></button>
 <button id="playToggle" class="icon-button play-button" aria-label="播放" disabled><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3v18l15-9z"/></svg></button>
 <button id="pauseToggle" class="icon-button play-button" aria-label="暂停" hidden><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 3h5v18H5zm9 0h5v18h-5z"/></svg></button>
@@ -53,6 +58,9 @@ const roots = [
 ];
 let songs=[], currentPath='', revision=0, dragging=false, catalogBusy=false;
 let sourceIndex=0, watchdog, wantsPlay=false, sourceActive=false, resumeAt=0, catalogVersion=0, renderedList='';
+const playbackModes=['once','single','sequence','random'];
+const playbackModeNames={once:'播放完暂停',single:'单曲循环',sequence:'顺序播放',random:'随机播放'};
+let playbackMode='once';
 const infoCache=new Map(), infoPending=new Map();
 function readCache(key){try{return JSON.parse(localStorage.getItem('piano32.'+key));}catch(_){return null;}}
 function writeCache(key,value){try{localStorage.setItem('piano32.'+key,JSON.stringify(value));}catch(_){}}
@@ -127,6 +135,30 @@ function selectSong(path,autoplay=false,changeUrl=true){
   renderList();
 }
 function move(offset){if(!songs.length)return;const index=songs.findIndex(s=>s.path===currentPath);const next=index<0?(offset>0?0:songs.length-1):(index+offset+songs.length)%songs.length;selectSong(songs[next].path,true);}
+function setPlaybackMode(mode){
+  playbackMode=mode;
+  for(const item of playbackModes){const icon=$('mode'+item[0].toUpperCase()+item.slice(1)+'Icon');if(icon)icon.hidden=item!==mode;}
+  const name=playbackModeNames[mode];$('playbackMode').title=name;$('playbackMode').setAttribute('aria-label',`播放模式：${name}，点击切换`);
+}
+function playAfterCurrent(){
+  if(playbackMode==='single'){
+    try{audio.currentTime=0;}catch(_){}
+    play();
+    return;
+  }
+  if(playbackMode==='once'||!songs.length)return;
+  let nextSong;
+  if(playbackMode==='sequence'){
+    const index=songs.findIndex(song=>song.path===currentPath);
+    if(index<0||index+1>=songs.length)return;
+    nextSong=songs[index+1];
+  }else{
+    const choices=songs.filter(song=>song.path!==currentPath);
+    const pool=choices.length?choices:songs;
+    nextSong=pool[Math.floor(Math.random()*pool.length)];
+  }
+  if(nextSong)selectSong(nextSong.path,true);
+}
 function renderList(){
   $('previous').disabled=!songs.length;$('next').disabled=!songs.length;
   if(!playlist.open)return;
@@ -150,6 +182,7 @@ async function loadCatalog(){
 function readHash(){try{const path=decodeURIComponent(location.hash.slice(1));if(path)selectSong(path,false,false);}catch(_){status.textContent='歌曲链接无效，请重新写卡。';}}
 $('playToggle').addEventListener('click',()=>{if(currentPath)play();});
 $('pauseToggle').addEventListener('click',()=>{wantsPlay=false;sourceActive=false;clearWatchdog();audio.pause();});
+$('playbackMode').addEventListener('click',()=>{const index=playbackModes.indexOf(playbackMode);setPlaybackMode(playbackModes[(index+1)%playbackModes.length]);});
 $('previous').addEventListener('click',()=>move(-1));$('next').addEventListener('click',()=>move(1));
 progress.addEventListener('input',()=>{dragging=true;$('elapsed').textContent=formatTime(Number(progress.value)/1000*audio.duration);progress.style.setProperty('--progress',Number(progress.value)/10+'%');});
 progress.addEventListener('change',()=>{if(Number.isFinite(audio.duration)&&audio.duration>0){try{audio.currentTime=Number(progress.value)/1000*audio.duration;}catch(_){status.textContent='暂时无法跳转到这个位置，请稍后重试。';}}dragging=false;updateProgress();});
@@ -166,13 +199,14 @@ audio.addEventListener('play',syncPlaying);audio.addEventListener('playing',()=>
 audio.addEventListener('pause',syncPlaying);
 audio.addEventListener('waiting',()=>{if(wantsPlay)armWatchdog();});
 audio.addEventListener('stalled',()=>{if(wantsPlay)armWatchdog();});
-audio.addEventListener('ended',()=>{clearWatchdog();syncPlaying();if(songs.length)move(1);else{wantsPlay=false;}});
+audio.addEventListener('ended',()=>{clearWatchdog();wantsPlay=false;sourceActive=false;syncPlaying();playAfterCurrent();});
 audio.addEventListener('error',()=>{if(currentPath)switchSource(false);});
 $('retry').addEventListener('click',()=>{if(currentPath)selectSong(currentPath,true);});
 window.addEventListener('hashchange',readHash);window.addEventListener('pagehide',()=>{wantsPlay=false;sourceActive=false;clearWatchdog();audio.pause();});
 const savedCatalog=readCache('catalog');
 if(validCatalog(savedCatalog)){songs=savedCatalog.files;catalogVersion++;$('listStatus').textContent=songs.length+' 首音乐 · 本机缓存';}
 readHash();
+setPlaybackMode(playbackMode);
 if(!currentPath && !location.hash && songs.length)selectSong(songs[0].path,false);
 renderList();loadCatalog();
 </script>
