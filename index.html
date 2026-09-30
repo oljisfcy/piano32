@@ -1,59 +1,92 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="application-name" content="piano32-player-v1">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <title>音乐卡片 · Piano32</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100svh; background: #0b0f19; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: grid; place-items: center; padding: 28px; }
-    main { width: 100%; max-width: 460px; min-width: 0; }
-    .label { color: #4ade80; font-size: 12px; letter-spacing: .22em; margin: 0 0 28px; }
-    h1 { font-size: clamp(26px, 7vw, 38px); font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; margin: 0 0 32px; }
-    audio { display: block; width: 100%; max-width: 100%; }
-    p { color: #94a3b8; font-size: 14px; line-height: 1.7; }
-    #status { margin-top: 22px; }
-    button { border: 1px solid #334155; border-radius: 9px; color: #dbeafe; background: #162031; padding: 10px 20px; cursor: pointer; }
-    [hidden] { display: none !important; }
-  </style>
+<meta charset="utf-8">
+<meta name="application-name" content="piano32-player-v1">
+<meta name="player-version" content="piano32-player-v2">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>音乐卡片 · Piano32</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100svh;background:#232727;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:2px solid #d3e8e2;outline-offset:5px}[hidden]{display:none!important}
+.ambient{position:fixed;inset:0;overflow:hidden;z-index:-1;background:radial-gradient(ellipse at 15% 0%,#84847b 0,transparent 60%),linear-gradient(145deg,#486864,#302d2b 65%,#1a1c1e)}.ambient img{width:100%;height:100%;object-fit:cover;filter:blur(60px) brightness(.4);transform:scale(1.2);opacity:.7}
+main{width:100%;max-width:560px;margin:auto;padding:28px clamp(20px,5vw,38px) 40px;padding-bottom:max(40px,env(safe-area-inset-bottom))}.topline{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;color:#e6ece7a8;font-size:10px;letter-spacing:.22em}.topline span:last-child{letter-spacing:.1em}.artwork{aspect-ratio:1;width:86%;margin:0 auto 34px;border-radius:25px;overflow:hidden;position:relative;background:linear-gradient(145deg,#9db4a7,#566f71 45%,#d4b595);box-shadow:0 18px 55px #0003}.artwork img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}.default-art{height:100%;display:grid;place-items:center}.record{width:64%;aspect-ratio:1;border-radius:50%;background:repeating-radial-gradient(circle,#253332 0 3px,#2c3b39 4px 5px);box-shadow:0 12px 25px #0004;display:grid;place-items:center}.record:after{content:'♪';display:grid;place-items:center;background:#b8cdc0;color:#243d37;width:32%;aspect-ratio:1;border-radius:50%;font-size:30px}
+.song-heading{display:flex;align-items:center;justify-content:space-between;gap:18px}.song-copy{min-width:0;flex:1}h1{font-size:clamp(25px,6vw,36px);line-height:1.2;letter-spacing:-.02em;margin:0 0 9px;overflow-wrap:anywhere}#author{margin:0;color:#dedfddbf;font-size:17px;overflow-wrap:anywhere}time{max-width:35%;font-size:12px;line-height:1.7;color:#d9dcd3a6;text-align:right;white-space:pre-line}#message{margin:20px 0 0;font-size:14px;line-height:1.8;color:#e1e7e0bb;white-space:pre-wrap;overflow-wrap:anywhere}
+.timeline{margin-top:30px}.range{display:block;width:100%;height:26px;margin:0;background:transparent;appearance:none;touch-action:pan-y;cursor:pointer}.range::-webkit-slider-runnable-track{height:6px;border-radius:8px;background:linear-gradient(to right,#f4f5ef var(--progress,0%),#ffffff35 var(--progress,0%))}.range::-webkit-slider-thumb{appearance:none;width:7px;height:24px;border-radius:4px;background:#fff;margin-top:-9px}.range::-moz-range-track{height:6px;background:#ffffff35;border-radius:8px}.range::-moz-range-progress{height:6px;background:#fff}.range::-moz-range-thumb{width:7px;height:24px;background:#fff;border:0;border-radius:4px}.times{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;font-variant-numeric:tabular-nums;color:#d2d6cdb3}.controls{display:grid;grid-template-columns:1fr 1fr 1.4fr 1fr 1fr;align-items:center;margin-top:30px;gap:10px}.icon-button{border:0;background:none;color:#fff;min-width:44px;min-height:48px;display:grid;place-items:center;padding:8px}.icon-button svg{width:26px;height:26px;fill:currentColor}.play-button{border-radius:50%;background:#ffffff19;width:86px;height:86px;justify-self:center}.play-button svg{width:36px;height:36px}button:disabled{opacity:.3;cursor:default}.control-spacer{width:44px}#status{min-height:20px;color:#ddd9;font-size:12px;text-align:center;margin:24px 0 0;line-height:1.7}.retry{display:block;margin:12px auto;border:1px solid #fff4;border-radius:8px;background:transparent;color:white;padding:8px 18px}
+dialog{color:#f5f6f2;background:#222a29;border:1px solid #ffffff1c;border-radius:24px;width:calc(100% - 28px);max-width:500px;max-height:80svh;padding:24px;box-shadow:0 30px 100px #0008}dialog::backdrop{background:#0008;backdrop-filter:blur(8px)}.list-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}h2{font-size:23px;margin:0}.track{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #fff1;background:transparent;color:inherit;padding:18px 12px;border-radius:8px}.track[aria-current=true]{background:#ffffff10;color:#d4eddb}.track strong,.track span{display:block;overflow-wrap:anywhere}.track strong{font-size:16px;font-weight:500}.track span{font-size:12px;color:#bbc7bc;margin-top:7px}#listStatus{color:#b9c4bc;font-size:13px;line-height:1.7}#refreshList{font-size:13px;border:0;background:transparent;color:#bddcc8;padding:12px 0}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}@media(max-width:350px){main{padding:20px}.artwork{margin-bottom:25px}.play-button{width:70px;height:70px}.controls{gap:4px}.song-heading{gap:10px}time{font-size:10px}}
+</style>
 </head>
 <body>
-  <main>
-    <p class="label">PIANO32 / MUSIC CARD</p>
-    <h1 id="title">音乐卡片</h1>
-    <audio id="audio" controls preload="none" playsinline controlslist="nodownload" hidden></audio>
-    <p id="status" role="status" aria-live="polite">请通过音乐卡片打开歌曲。</p>
-    <button id="retry" type="button" hidden>重新加载</button>
-  </main>
-  <script>
-    'use strict';
-    const title = document.getElementById('title');
-    const audio = document.getElementById('audio');
-    const status = document.getElementById('status');
-    const retry = document.getElementById('retry');
-    function loadSong() {
-      audio.pause(); audio.removeAttribute('src'); audio.load(); audio.hidden = true; retry.hidden = true;
-      try {
-        const path = decodeURIComponent(location.hash.slice(1));
-        if (!path || path.split('/').some(part => !part || part === '.' || part === '..') || /[\\\x00-\x1f\x7f]/.test(path) || !/\.(mp3|m4a|aac|wav|ogg|flac)$/i.test(path)) throw new Error('invalid path');
-        const name = path.split('/').pop();
-        title.textContent = name.replace(/\.[^.]+$/, '');
-        document.title = title.textContent + ' · Piano32';
-        audio.src = 'https://cdn.jsdelivr.net/gh/oljisfcy/piano32@main/' + path.split('/').map(encodeURIComponent).join('/');
-        audio.hidden = false;
-        status.textContent = '轻点播放，在线收听。';
-      } catch (_) { title.textContent = '音乐卡片'; status.textContent = '链接不完整，请在小程序中重新写卡。'; }
-    }
-    audio.addEventListener('playing', () => { status.textContent = '正在播放'; retry.hidden = true; });
-    audio.addEventListener('pause', () => { if (!audio.hidden && !audio.ended) status.textContent = '已暂停'; });
-    audio.addEventListener('ended', () => { status.textContent = '播放完毕'; });
-    audio.addEventListener('waiting', () => { status.textContent = '正在缓冲…'; });
-    audio.addEventListener('error', () => { if (!audio.getAttribute('src')) return; status.textContent = '暂时无法播放，请检查网络后重试。新上传的音乐可能仍在等待更新，或当前浏览器不支持此格式。'; retry.hidden = false; });
-    retry.addEventListener('click', () => { audio.load(); audio.play().catch(() => { status.textContent = '无法开始播放，请检查网络或更换浏览器重试。'; }); });
-    window.addEventListener('hashchange', loadSong);
-    loadSong();
-  </script>
+<div class="ambient" aria-hidden="true"><img id="background" hidden alt=""></div>
+<main>
+<div class="topline"><span>PIANO32</span><span>MUSIC CARD</span></div>
+<div class="artwork"><div class="default-art" id="defaultCover" aria-label="默认唱片封面"><div class="record"></div></div><img id="cover" hidden alt="歌曲封面"></div>
+<div class="song-heading"><div class="song-copy"><h1 id="title">音乐卡片</h1><p id="author">未填写</p></div><time id="uploadedAt" hidden></time></div>
+<p id="message" hidden></p>
+<audio id="audio" preload="metadata" playsinline></audio>
+<div class="timeline"><label for="progress" class="sr-only">播放进度</label><input id="progress" class="range" type="range" min="0" max="1000" step="1" value="0" disabled><div class="times"><span id="elapsed">00:00</span><span id="total">00:00</span></div></div>
+<div class="controls">
+<span class="control-spacer" aria-hidden="true"></span>
+<button id="previous" class="icon-button" aria-label="上一首" disabled><svg viewBox="0 0 24 24"><path d="M5 4h3v16H5zm15 0v16L9 12z"/></svg></button>
+<button id="toggle" class="icon-button play-button" aria-label="播放" disabled><svg id="playIcon" viewBox="0 0 24 24"><path d="M7 3v18l15-9z"/></svg><svg id="pauseIcon" viewBox="0 0 24 24" hidden><path d="M5 3h5v18H5zm9 0h5v18h-5z"/></svg></button>
+<button id="next" class="icon-button" aria-label="下一首" disabled><svg viewBox="0 0 24 24"><path d="M16 4h3v16h-3zM4 4l11 8-11 8z"/></svg></button>
+<button id="playlistButton" class="icon-button" aria-label="打开播放列表"><svg viewBox="0 0 24 24"><path d="M3 4h18v2H3zm0 5h18v2H3zm0 5h10v2H3zm0 5h10v2H3zm13-6 7 5-7 5z"/></svg></button>
+</div>
+<p id="status" role="status" aria-live="polite">正在读取音乐…</p><button id="retry" class="retry" hidden>重试播放</button>
+</main>
+<dialog id="playlist" aria-labelledby="listTitle"><div class="list-heading"><h2 id="listTitle">播放列表</h2><button id="closeList" class="icon-button" aria-label="关闭播放列表">✕</button></div><p id="listStatus" role="status"></p><div id="tracks"></div><button id="refreshList">刷新列表</button></dialog>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const audio=$('audio'), status=$('status'), progress=$('progress'), playlist=$('playlist');
+const api='https://api.github.com/repos/oljisfcy/piano32/git/trees/main?recursive=1';
+let songs=[], currentPath='', revision=0, dragging=false, catalogBusy=false;
+const infoCache=new Map();
+function validPath(path){return typeof path==='string' && path.length>0 && !/[\\\x00-\x1f\x7f]/.test(path) && path.split('/').every(p=>p && p!=='.' && p!=='..');}
+function isMusic(path){return validPath(path) && /\.(mp3|m4a|aac|wav|ogg|flac)$/i.test(path);}
+function encodePath(path){return path.split('/').map(encodeURIComponent).join('/');}
+function safeCover(path){return validPath(path) && path.startsWith('covers/') && /\.(jpe?g|png|webp)$/i.test(path) ? './'+encodePath(path) : '';}
+function formatTime(value){const s=Number.isFinite(value)?Math.max(0,Math.floor(value)):0;return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+async function getJson(url){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);try{const response=await fetch(url,{signal:controller.signal,cache:'no-cache'});if(!response.ok) throw new Error('HTTP '+response.status);return await response.json();}finally{clearTimeout(timer);}}
+function resetArtwork(){ $('cover').hidden=true;$('background').hidden=true;$('defaultCover').hidden=false;$('cover').removeAttribute('src');$('background').removeAttribute('src'); }
+function renderInfo(path,info={}){
+  $('title').textContent=path.split('/').pop().replace(/\.[^.]+$/,'');
+  $('author').textContent=typeof info.author==='string' && info.author.trim()?info.author.slice(0,80):'未填写';
+  $('message').textContent=typeof info.message==='string'?info.message.slice(0,500):'';$('message').hidden=!$('message').textContent;
+  const date=typeof info.uploadedAt==='string'?new Date(info.uploadedAt):null;
+  $('uploadedAt').hidden=!date || !Number.isFinite(date.getTime());
+  if(!$('uploadedAt').hidden){$('uploadedAt').textContent='上传于\n'+date.toLocaleDateString('zh-CN');$('uploadedAt').setAttribute('datetime',date.toISOString());}
+  document.title=$('title').textContent+' · Piano32';resetArtwork();
+  const cover=safeCover(info.cover);if(cover){$('cover').src=cover;$('background').src=cover;$('cover').hidden=false;$('background').hidden=false;$('defaultCover').hidden=true;}
+}
+async function metadata(path){if(infoCache.has(path))return infoCache.get(path);try{const info=await getJson('./'+encodePath('metadata/'+path+'.json'));if(!info || typeof info!=='object' || Array.isArray(info))return {};infoCache.set(path,info);return info;}catch(_){return {};}}
+function updateProgress(){const duration=audio.duration;const valid=Number.isFinite(duration)&&duration>0;progress.disabled=!valid;$('total').textContent=formatTime(duration);if(!dragging){progress.value=valid?String(Math.min(1000,audio.currentTime/duration*1000)):'0';$('elapsed').textContent=formatTime(audio.currentTime);}progress.style.setProperty('--progress',Number(progress.value)/10+'%');}
+function syncPlaying(){const playing=!audio.paused;$('toggle').setAttribute('aria-label',playing?'暂停':'播放');$('playIcon').hidden=playing;$('pauseIcon').hidden=!playing;}
+function play(){const version=revision;const promise=audio.play();if(promise)promise.catch(()=>{if(version===revision){status.textContent='请点播放继续；若仍无法播放，请检查网络或音频格式。';syncPlaying();}});}
+function selectSong(path,autoplay=false,changeUrl=true){
+  if(!isMusic(path)){status.textContent='链接不完整，请在小程序中重新写卡。';return;}
+  revision++;const version=revision;currentPath=path;dragging=false;audio.pause();audio.src='https://cdn.jsdelivr.net/gh/oljisfcy/piano32@main/'+encodePath(path);audio.load();
+  renderInfo(path);$('toggle').disabled=false;$('retry').hidden=true;progress.value='0';progress.disabled=true;$('elapsed').textContent='00:00';$('total').textContent='00:00';progress.style.setProperty('--progress','0%');syncPlaying();status.textContent=autoplay?'正在加载…':'轻点播放，在线收听。';
+  if(changeUrl)history.replaceState(null,'','#'+encodeURIComponent(path));
+  if(autoplay)play();
+  metadata(path).then(info=>{if(version===revision)renderInfo(path,info);renderList();});renderList();
+}
+function move(offset){if(!songs.length)return;const index=songs.findIndex(s=>s.path===currentPath);const next=index<0?(offset>0?0:songs.length-1):(index+offset+songs.length)%songs.length;selectSong(songs[next].path,true);}
+function renderList(){
+  const rows=songs.map(song=>{const button=document.createElement('button');button.className='track';button.setAttribute('aria-current',String(song.path===currentPath));const name=document.createElement('strong');name.textContent=song.path.split('/').pop().replace(/\.[^.]+$/,'');const author=document.createElement('span');const info=infoCache.get(song.path);author.textContent=info && typeof info.author==='string' && info.author.trim()?info.author.slice(0,80):song.path;button.append(name,author);button.addEventListener('click',()=>{playlist.close();selectSong(song.path,true);$('toggle').focus();});return button;});$('tracks').replaceChildren(...rows);$('previous').disabled=!songs.length;$('next').disabled=!songs.length;
+}
+async function loadCatalog(){if(catalogBusy)return;catalogBusy=true;$('refreshList').disabled=true;$('listStatus').textContent='正在读取仓库…';try{const data=await getJson(api);if(data.truncated || !Array.isArray(data.tree))throw new Error('incomplete catalog');songs=data.tree.filter(file=>file.type==='blob'&&isMusic(file.path)).sort((a,b)=>a.path.localeCompare(b.path));renderList();$('listStatus').textContent=songs.length? songs.length+' 首音乐':'仓库暂无音乐';if(!currentPath && !location.hash && songs.length)selectSong(songs[0].path,false);if(!currentPath && !songs.length)status.textContent='仓库暂无音乐';}catch(_){$('listStatus').textContent='无法获取完整列表，请稍后刷新（可能是网络或 GitHub 请求限额）。';if(!currentPath)status.textContent='请打开播放列表后重试加载。';}finally{catalogBusy=false;$('refreshList').disabled=false;}}
+function readHash(){try{const path=decodeURIComponent(location.hash.slice(1));if(path)selectSong(path,false,false);}catch(_){status.textContent='歌曲链接无效，请重新写卡。';}}
+$('toggle').addEventListener('click',()=>{if(!currentPath)return;if(audio.paused)play();else audio.pause();});$('previous').addEventListener('click',()=>move(-1));$('next').addEventListener('click',()=>move(1));
+progress.addEventListener('input',()=>{dragging=true;$('elapsed').textContent=formatTime(Number(progress.value)/1000*audio.duration);progress.style.setProperty('--progress',Number(progress.value)/10+'%');});
+progress.addEventListener('change',()=>{if(Number.isFinite(audio.duration)&&audio.duration>0){try{audio.currentTime=Number(progress.value)/1000*audio.duration;}catch(_){status.textContent='暂时无法跳转到这个位置，请稍后重试。';}}dragging=false;updateProgress();});
+$('playlistButton').addEventListener('click',()=>playlist.showModal());$('closeList').addEventListener('click',()=>playlist.close());$('refreshList').addEventListener('click',()=>{infoCache.clear();loadCatalog();if(currentPath){const path=currentPath,version=revision;metadata(path).then(info=>{if(version===revision)renderInfo(path,info);});}});
+$('cover').addEventListener('error',resetArtwork);
+audio.addEventListener('loadedmetadata',updateProgress);audio.addEventListener('durationchange',updateProgress);audio.addEventListener('timeupdate',updateProgress);
+audio.addEventListener('play',syncPlaying);audio.addEventListener('playing',()=>{status.textContent='正在播放';$('retry').hidden=true;syncPlaying();});audio.addEventListener('pause',()=>{syncPlaying();});audio.addEventListener('waiting',()=>{status.textContent='正在缓冲…';});
+audio.addEventListener('ended',()=>{syncPlaying();if(songs.length)move(1);else status.textContent='播放完毕';});
+audio.addEventListener('error',()=>{if(!currentPath)return;status.textContent='暂时无法播放，请检查网络或音频格式；新上传的歌曲可能仍在等待 CDN 更新。';$('retry').hidden=false;syncPlaying();});$('retry').addEventListener('click',()=>{if(currentPath)selectSong(currentPath,true);});
+window.addEventListener('hashchange',readHash);readHash();loadCatalog();
+</script>
 </body>
 </html>
