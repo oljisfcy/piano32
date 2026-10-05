@@ -27,6 +27,8 @@ dialog{color:#f5f6f2;background:#222a29;border:1px solid #ffffff1c;border-radius
 .mode-toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 14px);transform:translate(-50%,8px);z-index:3;padding:8px 14px;border:1px solid #ffffff24;border-radius:20px;background:#101716eF;color:#f4f6f2;font-size:13px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .16s ease,transform .16s ease}.mode-toast.visible{opacity:1;transform:translate(-50%,0)}
 .topline time{max-width:none;font-size:10px;line-height:1;color:#e6ece7a8;text-align:right;white-space:nowrap;letter-spacing:.1em;font-variant-numeric:tabular-nums}
 .track-section{top:clamp(0px,3.5svh,30px)}#message{display:block;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;-ms-overflow-style:none;-webkit-line-clamp:unset;-webkit-box-orient:initial}#message::-webkit-scrollbar{display:none}@media(max-height:700px){.track-section{top:clamp(0px,4svh,28px)}}
+html{touch-action:manipulation}
+.topline,.topline time,.artwork,.artwork img{-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
 </style>
 </head>
 <body>
@@ -148,6 +150,23 @@ function selectSong(path,autoplay=false,changeUrl=true){
   renderList();
 }
 function move(offset){if(!songs.length)return;const index=songs.findIndex(s=>s.path===currentPath);const next=index<0?(offset>0?0:songs.length-1):(index+offset+songs.length)%songs.length;selectSong(songs[next].path,true);}
+function toggleFullscreen(){
+  const active=document.fullscreenElement||document.webkitFullscreenElement;
+  const action=active?(document.exitFullscreen||document.webkitExitFullscreen):(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
+  const owner=active?document:document.documentElement;
+  if(!action)return;
+  try{Promise.resolve(action.call(owner)).catch(()=>{});}catch(_){}
+}
+let lastTap=null;
+const touchDevice=('ontouchstart' in window)||!!(window.navigator&&window.navigator.maxTouchPoints);
+document.addEventListener('dblclick',()=>{if(!touchDevice)toggleFullscreen();});
+document.addEventListener('touchend',event=>{
+  const touch=event.changedTouches&&event.changedTouches[0];
+  if(!touch){lastTap=null;return;}
+  const now=Date.now(),x=touch.clientX,y=touch.clientY;
+  if(lastTap&&now-lastTap.time<380&&Math.hypot(x-lastTap.x,y-lastTap.y)<40){lastTap=null;toggleFullscreen();}
+  else lastTap={time:now,x,y};
+},{passive:true});
 function setPlaybackMode(mode){
   playbackMode=mode;
   for(const item of playbackModes){const icon=$('mode'+item[0].toUpperCase()+item.slice(1)+'Icon');if(icon)icon.classList.toggle('is-active',item===mode);}
