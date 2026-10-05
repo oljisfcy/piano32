@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="application-name" content="Piano32 音乐播放器">
-<meta name="player-version" content="piano32-player-v3">
+<meta name="player-version" content="piano32-player-v4">
 <meta name="description" content="Piano32 音乐播放器，在线收听歌曲并浏览播放列表。">
 <meta name="google" content="notranslate">
 <meta property="og:locale" content="zh_CN">
@@ -158,6 +158,32 @@ function toggleFullscreen(){
   if(!action)return;
   try{Promise.resolve(action.call(owner)).catch(()=>{});}catch(_){}
 }
+let orientationLockRequested=false;
+function syncFullscreenOrientation(){
+  const target=window.screen;
+  if(!target)return;
+  const active=document.fullscreenElement||document.webkitFullscreenElement;
+  if(!active){
+    orientationLockRequested=false;
+    try{
+      if(target.orientation&&typeof target.orientation.unlock==='function')target.orientation.unlock();
+      else {const unlock=target.unlockOrientation||target.mozUnlockOrientation||target.msUnlockOrientation;if(unlock)unlock.call(target);}
+    }catch(_){}
+    return;
+  }
+  if(orientationLockRequested)return;
+  try{
+    if(target.orientation&&typeof target.orientation.lock==='function'){
+      orientationLockRequested=true;
+      Promise.resolve(target.orientation.lock('portrait')).catch(()=>{orientationLockRequested=false;});
+    }else{
+      const lock=target.lockOrientation||target.mozLockOrientation||target.msLockOrientation;
+      if(lock)orientationLockRequested=lock.call(target,'portrait')!==false;
+    }
+  }catch(_){orientationLockRequested=false;}
+}
+document.addEventListener('fullscreenchange',syncFullscreenOrientation);
+document.addEventListener('webkitfullscreenchange',syncFullscreenOrientation);
 let lastTap=null;
 const touchDevice=('ontouchstart' in window)||!!(window.navigator&&window.navigator.maxTouchPoints);
 document.addEventListener('dblclick',()=>{if(!touchDevice)toggleFullscreen();});
