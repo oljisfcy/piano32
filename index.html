@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="application-name" content="Piano32 音乐播放器">
-<meta name="player-version" content="piano32-player-v4">
+<meta name="player-version" content="piano32-player-v5">
 <meta name="description" content="Piano32 音乐播放器，在线收听歌曲并浏览播放列表。">
 <meta name="google" content="notranslate">
 <meta property="og:locale" content="zh_CN">
@@ -12,9 +12,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232c403b'/%3E%3Cpath transform='translate(6 -3)' d='M42 13v30a9 9 0 1 1-5-8V22l-15 3v24a9 9 0 1 1-5-8V19z' fill='%23edf2e9'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://oljisfcy.github.io" crossorigin>
-<link rel="dns-prefetch" href="https://raw.githubusercontent.com">
-<link rel="dns-prefetch" href="https://api.github.com">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
+<link rel="dns-prefetch" href="https://oljisfcy.github.io">
 <title>音乐卡片播放器</title>
 <style>
 *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#232727;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:2px solid #d3e8e2;outline-offset:5px}[hidden]{display:none!important}
@@ -66,13 +66,15 @@ html{touch-action:manipulation}
 'use strict';
 const $ = id => document.getElementById(id);
 const audio = $('audio'), status = $('status'), progress = $('progress'), playlist = $('playlist');
-const api = 'https://api.github.com/repos/oljisfcy/piano32/git/trees/main?recursive=1';
 const roots = [
-  {id:'pages', label:'GitHub Pages', url:'https://oljisfcy.github.io/piano32/'},
-  {id:'github', label:'GitHub 原文件', url:'https://raw.githubusercontent.com/oljisfcy/piano32/main/'}
+  {id:'jsdelivr', label:'jsDelivr CDN', url:'https://cdn.jsdelivr.net/gh/oljisfcy/piano32@main/'},
+  {id:'github', label:'GitHub 原文件', url:'https://raw.githubusercontent.com/oljisfcy/piano32/main/'},
+  {id:'pages', label:'GitHub Pages', url:'https://oljisfcy.github.io/piano32/'}
 ];
+const catalogName='catalog.json', CATALOG_MAX_AGE=3600000;
 let songs=[], currentPath='', revision=0, dragging=false, catalogBusy=false;
 let sourceIndex=0, watchdog, wantsPlay=false, sourceActive=false, resumeAt=0, catalogVersion=0, renderedList='';
+let coverSourceIndex=0, currentCoverPath='', catalogTime=0;
 let modeToastTimer, modeToastHideTimer;
 const playbackModes=['once','single','sequence','random'];
 const playbackModeNames={once:'播放完暂停',single:'单曲循环',sequence:'顺序播放',random:'随机播放'};
@@ -83,11 +85,11 @@ function writeCache(key,value){try{localStorage.setItem('piano32.'+key,JSON.stri
 function validPath(path){return typeof path==='string' && path.length>0 && !/[\\\x00-\x1f\x7f]/.test(path) && path.split('/').every(p=>p && p!=='.' && p!=='..');}
 function isMusic(path){return validPath(path) && /\.(mp3|m4a|aac|wav|ogg|flac)$/i.test(path);}
 function encodePath(path){return path.split('/').map(encodeURIComponent).join('/');}
-function safeCover(path){return validPath(path) && path.startsWith('covers/') && /\.(jpe?g|png|webp)$/i.test(path) ? roots[0].url+encodePath(path) : '';}
+function validCover(path){return validPath(path) && path.startsWith('covers/') && /\.(jpe?g|png|webp)$/i.test(path);}
 function formatTime(value){const s=Number.isFinite(value)?Math.max(0,Math.floor(value)):0;return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 async function getJson(url){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),5000);try{const response=await fetch(url,{signal:controller.signal});if(!response.ok)throw new Error('HTTP '+response.status);return await response.json();}finally{clearTimeout(timer);}}
 function clearWatchdog(){clearTimeout(watchdog);watchdog=null;}
-function armWatchdog(){if(!watchdog)watchdog=setTimeout(()=>switchSource(false),7000);}
+function armWatchdog(){if(!watchdog)watchdog=setTimeout(()=>switchSource(false),4000);}
 function resetArtwork(){ $('cover').hidden=true;$('background').hidden=true;$('defaultCover').hidden=false;$('cover').removeAttribute('src');$('background').removeAttribute('src'); }
 function renderInfo(path,info={}){
   $('title').textContent=path.split('/').pop().replace(/\.[^.]+$/,'');
@@ -97,8 +99,11 @@ function renderInfo(path,info={}){
   $('uploadedAt').hidden=!date || !Number.isFinite(date.getTime());
   if(!$('uploadedAt').hidden){$('uploadedAt').textContent=`${date.getFullYear()} · ${String(date.getMonth()+1).padStart(2,'0')} · ${String(date.getDate()).padStart(2,'0')}`;$('uploadedAt').setAttribute('datetime',date.toISOString());}
   document.title=$('title').textContent+' · Piano32';
-  const cover=safeCover(info.cover);
-  if(cover){if($('cover').getAttribute('src')!==cover){$('cover').src=cover;$('background').src=cover;}$('cover').hidden=false;$('background').hidden=false;$('defaultCover').hidden=true;}
+  currentCoverPath=info.cover;
+  if(validCover(currentCoverPath)){
+    coverSourceIndex=0;const cover=roots[coverSourceIndex].url+encodePath(currentCoverPath);
+    if($('cover').getAttribute('src')!==cover){$('cover').src=cover;$('background').src=cover;}$('cover').hidden=false;$('background').hidden=false;$('defaultCover').hidden=true;
+  }
   else resetArtwork();
 }
 async function metadata(path,force=false){
@@ -147,7 +152,7 @@ function selectSong(path,autoplay=false,changeUrl=true){
   status.textContent='';
   if(changeUrl)history.replaceState(null,'','#'+encodeURIComponent(path));
   assignSource();syncPlaying();
-  if(!cached || !cached.time || Date.now()-cached.time>300000)metadata(path,true).then(info=>{if(version===revision)renderInfo(path,info);});
+  if((!cached || !cached.time || Date.now()-cached.time>300000) && Date.now()-catalogTime>CATALOG_MAX_AGE)metadata(path,true).then(info=>{if(version===revision)renderInfo(path,info);});
   renderList();
 }
 function move(offset){if(!songs.length)return;const index=songs.findIndex(s=>s.path===currentPath);const next=index<0?(offset>0?0:songs.length-1):(index+offset+songs.length)%songs.length;selectSong(songs[next].path,true);}
@@ -237,11 +242,18 @@ function renderList(){
 function validCatalog(data){return data && Array.isArray(data.files) && data.files.every(s=>s && s.type==='blob' && isMusic(s.path));}
 async function loadCatalog(){
   if(catalogBusy)return;catalogBusy=true;$('refreshList').disabled=true;
-  $('listStatus').textContent=songs.length?songs.length+' 首音乐 · 检查更新中':'正在读取仓库…';
+  $('listStatus').textContent=songs.length?songs.length+' 首音乐 · 检查更新中':'正在读取目录…';
   try{
-    const data=await getJson(api);if(data.truncated || !Array.isArray(data.tree))throw new Error('incomplete catalog');
-    songs=data.tree.filter(file=>file.type==='blob'&&isMusic(file.path)).map(file=>({path:file.path,type:'blob'})).sort((a,b)=>a.path.localeCompare(b.path));
-    catalogVersion++;writeCache('catalog',{files:songs,time:Date.now()});renderList();
+    let data=null;
+    for(const root of roots){try{
+      const json=await getJson(root.url+catalogName);
+      if(!json || typeof json!=='object' || !Array.isArray(json.songs) || !json.songs.length)continue;
+      data=json;break;
+    }catch(_){}}
+    if(!data)throw new Error('catalog unavailable');
+    songs=data.songs.filter(song=>isMusic(song.path)).map(song=>({path:song.path,type:'blob'})).sort((a,b)=>a.path.localeCompare(b.path));
+    for(const song of data.songs){if(!isMusic(song.path))continue;const info={};for(const key of ['author','message','uploadedAt','cover']){if(typeof song[key]==='string')info[key]=song[key];}infoCache.set(song.path,info);}
+    catalogVersion++;catalogTime=Date.now();writeCache('catalog',{files:songs,time:catalogTime});renderList();
     $('listStatus').textContent=songs.length?songs.length+' 首音乐':'仓库暂无音乐';
     if(!currentPath && !location.hash && songs.length)selectSong(songs[0].path,false);
     if(!currentPath && !songs.length)status.textContent='仓库暂无音乐';
@@ -258,8 +270,8 @@ progress.addEventListener('change',()=>{if(Number.isFinite(audio.duration)&&audi
 $('playlistButton').addEventListener('click',()=>{playlist.showModal();renderList();});$('closeList').addEventListener('click',()=>playlist.close());
 $('refreshList').addEventListener('click',()=>{loadCatalog();if(currentPath){const path=currentPath,version=revision;metadata(path,true).then(info=>{if(version===revision)renderInfo(path,info);});}});
 $('cover').addEventListener('error',()=>{
-  const src=$('cover').getAttribute('src')||'';
-  if(src.startsWith(roots[0].url)){const fallback=roots[1].url+src.slice(roots[0].url.length);$('cover').src=fallback;$('background').src=fallback;}else resetArtwork();
+  if(!validCover(currentCoverPath) || coverSourceIndex+1>=roots.length){resetArtwork();return;}
+  coverSourceIndex++;const fallback=roots[coverSourceIndex].url+encodePath(currentCoverPath);$('cover').src=fallback;$('background').src=fallback;
 });
 audio.addEventListener('loadedmetadata',()=>{if(resumeAt>0){try{audio.currentTime=resumeAt;}catch(_){}resumeAt=0;}updateProgress();});
 audio.addEventListener('canplay',clearWatchdog);
@@ -273,11 +285,12 @@ audio.addEventListener('error',()=>{if(currentPath)switchSource(false);});
 $('retry').addEventListener('click',()=>{if(currentPath)selectSong(currentPath,true);});
 window.addEventListener('hashchange',readHash);window.addEventListener('pagehide',()=>{wantsPlay=false;sourceActive=false;clearWatchdog();audio.pause();});
 const savedCatalog=readCache('catalog');
-if(validCatalog(savedCatalog)){songs=savedCatalog.files;catalogVersion++;$('listStatus').textContent=songs.length+' 首音乐 · 本机缓存';}
+if(validCatalog(savedCatalog)){songs=savedCatalog.files;catalogVersion++;catalogTime=typeof savedCatalog.time==='number'?savedCatalog.time:Date.now();$('listStatus').textContent=songs.length+' 首音乐 · 本机缓存';}
 readHash();
 setPlaybackMode(playbackMode);
 if(!currentPath && !location.hash && songs.length)selectSong(songs[0].path,false);
-renderList();loadCatalog();
+renderList();
+if(!savedCatalog || typeof savedCatalog.time!=='number' || Date.now()-savedCatalog.time>CATALOG_MAX_AGE)loadCatalog();
 </script>
 </body>
 </html>
