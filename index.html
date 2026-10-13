@@ -11,8 +11,7 @@
 <meta property="og:description" content="在线收听歌曲并浏览播放列表。">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232c403b'/%3E%3Cpath transform='translate(6 -3)' d='M42 13v30a9 9 0 1 1-5-8V22l-15 3v24a9 9 0 1 1-5-8V19z' fill='%23edf2e9'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%3Crect%20width=%2264%22%20height=%2264%22%20rx=%2216%22%20fill=%22%232c403b%22/%3E%3Cpath%20transform=%22translate(6%20-3)%22%20d=%22M42%2013v30a9%209%200%201%201-5-8V22l-15%203v24a9%209%200%201%201-5-8V19z%22%20fill=%22%23edf2e9%22/%3E%3C/svg%3E"><link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
 <link rel="dns-prefetch" href="https://oljisfcy.github.io">
 <title>音乐卡片播放器</title>
 <style>
@@ -66,6 +65,8 @@ html{touch-action:manipulation}
 const $ = id => document.getElementById(id);
 const audio = $('audio'), status = $('status'), progress = $('progress'), playlist = $('playlist');
 const roots = [
+  {id:'CloudFlare', label:'CloudFlareDNS+CustomDomain', url:'https://piano32.oljisfcy.top/'},
+  {id:'CDN', label:'Tencent EdgeOne', url:'https://oljisfcy.top/piano32/'},
   {id:'pages', label:'GitHub Pages', url:'https://oljisfcy.github.io/piano32/'},
   {id:'github', label:'GitHub 原文件', url:'https://raw.githubusercontent.com/oljisfcy/piano32/main/'},
 ];
