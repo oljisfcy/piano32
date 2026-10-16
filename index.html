@@ -25,6 +25,7 @@ dialog{color:#f5f6f2;background:#222a29;border:1px solid #ffffff1c;border-radius
 .icon-button svg.mode-icon{display:none}.icon-button svg.mode-icon.is-active{display:block}
 .mode-toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 14px);transform:translate(-50%,8px);z-index:3;padding:8px 14px;border:1px solid #ffffff24;border-radius:20px;background:#101716eF;color:#f4f6f2;font-size:13px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .16s ease,transform .16s ease}.mode-toast.visible{opacity:1;transform:translate(-50%,0)}
 .topline time{max-width:none;font-size:10px;line-height:1;color:#e6ece7a8;text-align:right;white-space:nowrap;letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.download-progress{height:24px;margin-top:8px;display:flex;align-items:center;gap:10px;color:#d9e2dbb8;font-size:11px;letter-spacing:.04em;opacity:1;transition:opacity .24s ease,height .24s ease,margin .24s ease;overflow:hidden}.download-progress[hidden]{display:none}.download-progress.is-fading{opacity:0;height:0;margin-top:0}.download-track{position:relative;flex:1;height:3px;border-radius:4px;background:#ffffff25;overflow:hidden}.download-fill{position:absolute;inset:0 auto 0 0;width:0;border-radius:inherit;background:linear-gradient(90deg,#c3e4d0,#f3f5ed);transition:width .2s ease}.download-progress.is-indeterminate .download-fill{width:38%;animation:download-sweep 1.25s ease-in-out infinite}.download-label{min-width:54px;text-align:right;font-variant-numeric:tabular-nums}@keyframes download-sweep{0%{transform:translateX(-110%)}100%{transform:translateX(290%)}}
 .track-section{top:clamp(0px,3.5svh,30px)}#message{display:block;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;-ms-overflow-style:none;-webkit-line-clamp:unset;-webkit-box-orient:initial}#message::-webkit-scrollbar{display:none}@media(max-height:700px){.track-section{top:clamp(0px,4svh,28px)}}
 html{touch-action:manipulation}
 .topline,.topline time,.artwork,.artwork img{-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
@@ -40,6 +41,7 @@ html{touch-action:manipulation}
 <div class="song-heading"><div class="song-copy"><h1 id="title">音乐卡片</h1><p id="author">佚名</p></div></div>
 <p id="message" hidden></p>
 <audio id="audio" preload="metadata" playsinline style="display:none"></audio>
+<div id="downloadProgress" class="download-progress" role="status" aria-live="polite" hidden><span id="downloadLabel">正在加载</span><span class="download-track" aria-hidden="true"><span id="downloadFill" class="download-fill"></span></span><span id="downloadPercent" class="download-label"></span></div>
 <div class="timeline"><label for="progress" class="sr-only">播放进度</label><input id="progress" class="range" type="range" min="0" max="1000" step="1" value="0" disabled><div class="times"><span id="elapsed">00:00</span><span id="total">00:00</span></div></div>
 <div class="controls">
 <button id="playbackMode" class="icon-button" aria-label="播放模式：播放完暂停，点击切换" title="播放完暂停">
@@ -71,7 +73,7 @@ const roots = [
   {id:'github', label:'GitHub 原文件', url:'https://raw.githubusercontent.com/oljisfcy/piano32/main/'},
 ];
 const catalogName='catalog.json', CATALOG_MAX_AGE=3600000;
-let songs=[], currentPath='', revision=0, dragging=false, catalogBusy=false;
+let songs=[], currentPath='', revision=0, dragging=false, catalogBusy=false, downloadHideTimer;
 let sourceIndex=0, watchdog, wantsPlay=false, sourceActive=false, resumeAt=0, catalogVersion=0, renderedList='';
 let coverSourceIndex=0, currentCoverPath='', catalogTime=0;
 let modeToastTimer, modeToastHideTimer;
@@ -120,6 +122,9 @@ async function metadata(path,force=false){
   try{return await pending;}finally{infoPending.delete(path);}
 }
 function updateProgress(){const duration=audio.duration;const valid=Number.isFinite(duration)&&duration>0;progress.disabled=!valid;$('total').textContent=formatTime(duration);if(!dragging){progress.value=valid?String(Math.min(1000,audio.currentTime/duration*1000)):'0';$('elapsed').textContent=formatTime(audio.currentTime);}progress.style.setProperty('--progress',Number(progress.value)/10+'%');}
+function showDownloadProgress(){clearTimeout(downloadHideTimer);const bar=$('downloadProgress');bar.hidden=false;bar.classList.remove('is-fading');$('downloadLabel').textContent='正在加载';$('downloadPercent').textContent='';$('downloadFill').style.width='0%';bar.classList.add('is-indeterminate');}
+function updateDownloadProgress(){const bar=$('downloadProgress');if(bar.hidden)return;const total=audio.duration;let buffered=0;try{if(audio.buffered.length)buffered=audio.buffered.end(audio.buffered.length-1);}catch(_){}if(Number.isFinite(total)&&total>0){const percent=Math.min(100,Math.round(buffered/total*100));bar.classList.remove('is-indeterminate');$('downloadFill').style.width=percent+'%';$('downloadPercent').textContent=percent+'%';}else{bar.classList.add('is-indeterminate');$('downloadPercent').textContent='';}}
+function hideDownloadProgress(){const bar=$('downloadProgress');bar.classList.add('is-fading');clearTimeout(downloadHideTimer);downloadHideTimer=setTimeout(()=>{bar.hidden=true;bar.classList.remove('is-fading');},260);}
 function syncPlaying(){const playing=!audio.paused;$('playToggle').hidden=playing;$('pauseToggle').hidden=!playing;$('playToggle').disabled=!currentPath;$('pauseToggle').disabled=!currentPath;}
 function play(){
   wantsPlay=true;sourceActive=true;armWatchdog();const version=revision;const source=sourceIndex;
@@ -132,6 +137,7 @@ function play(){
 }
 function assignSource(){
   sourceActive=true;
+  showDownloadProgress();
   audio.pause();audio.src=roots[sourceIndex].url+encodePath(currentPath);audio.load();
   if(wantsPlay)play();else armWatchdog();
 }
@@ -272,15 +278,15 @@ $('cover').addEventListener('error',()=>{
   if(!validCover(currentCoverPath) || coverSourceIndex+1>=roots.length){resetArtwork();return;}
   coverSourceIndex++;const fallback=roots[coverSourceIndex].url+encodePath(currentCoverPath);$('cover').src=fallback;$('background').src=fallback;
 });
-audio.addEventListener('loadedmetadata',()=>{if(resumeAt>0){try{audio.currentTime=resumeAt;}catch(_){}resumeAt=0;}updateProgress();});
-audio.addEventListener('canplay',clearWatchdog);
-audio.addEventListener('durationchange',updateProgress);audio.addEventListener('timeupdate',()=>{if(!audio.paused && audio.currentTime>0)clearWatchdog();updateProgress();});
-audio.addEventListener('play',syncPlaying);audio.addEventListener('playing',()=>{clearWatchdog();$('retry').hidden=true;syncPlaying();});
+audio.addEventListener('loadedmetadata',()=>{if(resumeAt>0){try{audio.currentTime=resumeAt;}catch(_){}resumeAt=0;}updateProgress();updateDownloadProgress();});
+audio.addEventListener('canplay',()=>{clearWatchdog();hideDownloadProgress();});
+audio.addEventListener('durationchange',()=>{updateProgress();updateDownloadProgress();});audio.addEventListener('progress',updateDownloadProgress);audio.addEventListener('timeupdate',()=>{if(!audio.paused && audio.currentTime>0)clearWatchdog();updateProgress();updateDownloadProgress();});
+audio.addEventListener('play',syncPlaying);audio.addEventListener('playing',()=>{clearWatchdog();hideDownloadProgress();$('retry').hidden=true;syncPlaying();});
 audio.addEventListener('pause',syncPlaying);
 audio.addEventListener('waiting',()=>{if(wantsPlay)armWatchdog();});
 audio.addEventListener('stalled',()=>{if(wantsPlay)armWatchdog();});
 audio.addEventListener('ended',()=>{clearWatchdog();wantsPlay=false;sourceActive=false;syncPlaying();playAfterCurrent();});
-audio.addEventListener('error',()=>{if(currentPath)switchSource(false);});
+audio.addEventListener('error',()=>{hideDownloadProgress();if(currentPath)switchSource(false);});
 $('retry').addEventListener('click',()=>{if(currentPath)selectSong(currentPath,true);});
 window.addEventListener('hashchange',readHash);window.addEventListener('pagehide',()=>{wantsPlay=false;sourceActive=false;clearWatchdog();audio.pause();});
 const savedCatalog=readCache('catalog');
